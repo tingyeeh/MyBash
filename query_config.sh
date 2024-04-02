@@ -3,87 +3,106 @@
 # Function to check version requirement
 check_version() {
     local version=$1
-    local requirement=$2
+    local requirement=(${2//|/ })
     version=$(echo "$version" | grep -oE '([0-9]+\.){0,2}[0-9]+')
-    requirement=$(echo "$requirement" | grep -oE '([0-9]+\.){0,2}[0-9]+')
-    if [[ $(printf '%s\n' "$requirement" "$version" | sort -V | head -n1) = "$requirement" ]]; then
-        echo "OK"
-    else
-        echo "FAIL (Installed: $version, Required: $requirement)"
-    fi
+    for req in "${requirement[@]}"; do
+        if [[ $(printf '%s\n' "$req" "$version" | sort -V | head -n1) == "$req" ]]; then
+            return 0 # Version meets requirement
+        fi
+    done
+    return 1 # Version does not meet any requirement
+}
+
+# Function to check web servers (Apache, nginx, OpenResty)
+check_web_server() {
+    local web_servers=("Apache 2.4" "nginx 1.24" "OpenResty 1.24")
+    local check_commands=("apache2 -v" "nginx -v" "openresty -v")
+    local i=0
+
+    for ws in "${web_servers[@]}"; do
+        local version=$(${check_commands[$i]} 2>&1)
+        if [ $? -eq 0 ]; then # Command executed successfully
+            if check_version "$version" "${ws##* }"; then
+                echo "${ws%% *}... OK"
+                return
+            fi
+        fi
+        ((i++))
+    done
+    echo "Web server... FAIL (None found or does not meet the requirement)"
+}
+
+# Function to check databases (MariaDB, MySQL)
+check_database() {
+    local databases=("MariaDB 10.6" "MySQL 8")
+    local check_commands=("mysql -V" "mysql -V")
+    local i=0
+
+    for db in "${databases[@]}"; do
+        local version=$(${check_commands[$i]} 2>&1)
+        if [ $? -eq 0 ]; then # Command executed successfully
+            local name="${db%% *}"
+            local req_version="${db##* }"
+            if [[ $version == *"$name"* ]] && check_version "$version" "$req_version"; then
+                echo "$name... OK"
+                return
+            fi
+        fi
+        ((i++))
+    done
+    echo "Database... FAIL (None found or does not meet the requirement)"
 }
 
 echo "Checking Composer version..."
-composer_version=$(composer --version)
-check_version "$composer_version" "2.6"
+composer_version=$(composer --version 2>&1)
+if check_version "$composer_version" "2.6"; then
+    echo "Composer... OK"
+else
+    echo "Composer... FAIL (Installed: $composer_version, Required: 2.6)"
+fi
 
 echo "Checking Elasticsearch version..."
-# For Elasticsearch and similar services, you might need to adjust the command
-# depending on how it's accessible from your host.
-elasticsearch_version=$(curl -XGET 'localhost:9200')
-check_version "$elasticsearch_version" "8.11"
+elasticsearch_version=$(curl -XGET 'localhost:9200' 2>/dev/null)
+if check_version "$elasticsearch_version" "8.11"; then
+    echo "Elasticsearch... OK"
+else
+    echo "Elasticsearch... FAIL (Installed: $elasticsearch_version, Required: 8.11)"
+fi
 
 echo "Checking OpenSearch version..."
-# Adjust the command to fetch OpenSearch version if necessary
-opensearch_version=$(curl -XGET 'localhost:9200')
-check_version "$opensearch_version" "2.11"
+opensearch_version=$(curl -XGET 'localhost:9200' 2>/dev/null)
+if check_version "$opensearch_version" "2.11"; then
+    echo "OpenSearch... OK"
+else
+    echo "OpenSearch... FAIL (Installed: $opensearch_version, Required: 2.11)"
+fi
 
-echo "Checking MariaDB version..."
-mariadb_version=$(mysql -V)
-check_version "$mariadb_version" "10.6"
-
-echo "Checking MySQL version..."
-mysql_version=$(mysql -V)
-check_version "$mysql_version" "8"
+echo "Checking Database version..."
+check_database
 
 echo "Checking PHP version..."
-php_version=$(php -v)
-check_version "$php_version" "8.3"
+php_version=$(php -v 2>&1)
+if check_version "$php_version" "8.3|8.2"; then
+    echo "PHP... OK"
+else
+    echo "PHP... FAIL (Installed: $php_version, Required: 8.3 or 8.2)"
+fi
 
 echo "Checking RabbitMQ version..."
-rabbitmq_version=$(rabbitmqctl status)
-check_version "$rabbitmq_version" "3.12"
+rabbitmq_version=$(rabbitmqctl status 2>/dev/null)
+if check_version "$rabbitmq_version" "3.12"; then
+    echo "RabbitMQ... OK"
+else
+    echo "RabbitMQ... FAIL (Installed: $rabbitmq_version, Required: 3.12)"
+fi
 
 echo "Checking Redis version..."
-redis_version=$(redis-server --version)
-check_version "$redis_version" "7.2"
+redis_version=$(redis-server --version 2>/dev/null)
+if check_version "$redis_version" "7.2"; then
+    echo "Redis... OK"
+else
+    echo "Redis... FAIL (Installed: $redis_version, Required: 7.2)"
+fi
 
 echo "Checking Varnish version..."
-varnish_version=$(varnishd -V)
-check_version "$varnish_version" "7.4"
-
-echo "Checking Apache version..."
-apache_version=$(apache2 -v)
-check_version "$apache_version" "2.4"
-
-echo "Checking nginx version..."
-nginx_version=$(nginx -v)
-check_version "$nginx_version" "1.24"
-
-echo "Checking PHP extensions..."
-# List of required PHP extensions
-extensions=(bcmath ctype curl dom fileinfo filter gd hash iconv intl json libxml mbstring openssl pcre pdo_mysql simplexml soap sockets sodium tokenizer xmlwriter xsl zip zlib)
-
-for ext in "${extensions[@]}"; do
-    if ! php -m | grep -qi "$ext"; then
-        echo "$ext extension... FAIL"
-    else
-        echo "$ext extension... OK"
-    fi
-done
-
-echo "Checking other utilities..."
-# List of required utilities
-utilities=(bash gzip lsof mysql mysqldump nice php sed tar)
-
-for util in "${utilities[@]}"; do
-    if ! command -v "$util" &> /dev/null; then
-        echo "$util... FAIL"
-    else
-        echo "$util... OK"
-    fi
-done
-
-echo "Checking PHP Xdebug version..."
-xdebug_version=$(php -r "echo phpversion('xdebug');")
-check_version "$xdebug_version" "2.5"
+varnish
