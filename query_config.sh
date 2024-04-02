@@ -43,6 +43,39 @@ check_version() {
     fi
 }
 
+
+# Check Composer
+composer_version=$(composer --version 2>&1)
+check_version "$composer_version" "2.6" "Composer"
+
+# Check Elasticsearch
+elasticsearch_version=$(curl -XGET 'localhost:9200' 2>&1 | grep 'number' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+check_version "$elasticsearch_version" "8.11" "Elasticsearch"
+
+# Check OpenSearch
+opensearch_version=$(curl -XGET 'localhost:9200' 2>&1 | grep 'number' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+check_version "$opensearch_version" "2.11" "OpenSearch"
+
+# Check MariaDB
+mariadb_version=$(mysql --version 2>&1 | grep -o 'MariaDB.*' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+check_version "$mariadb_version" "10.6" "MariaDB"
+
+# Check MySQL
+mysql_version=$(mysql --version 2>&1 | grep -v 'MariaDB' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+check_version "$mysql_version" "8.0" "MySQL"
+
+# Check PHP
+php_version=$(php -v 2>&1 | head -n 1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+check_version "$php_version" "8.3|8.2" "PHP"
+
+echo "Performing system dependency checks..."
+
+# Check for required system dependencies
+required_commands=("bash" "gzip" "lsof" "mysql" "mysqldump" "nice" "php" "sed" "tar")
+for cmd in "${required_commands[@]}"; do
+    check_command "$cmd"
+done
+
 # Function to check PHP extensions
 check_php_extension() {
     local extension=$1
@@ -52,16 +85,6 @@ check_php_extension() {
         print_result notfound "PHP extension $extension"
     fi
 }
-
-# Perform checks
-echo "Performing system checks..."
-
-# Sample checks for software versions
-# You can uncomment or add similar checks for other software as needed
-
-# Check Composer
-# composer_version=$(composer --version 2>&1)
-# check_version "$composer_version" "2.6" "Composer"
 
 # Check for required PHP extensions
 required_extensions=("bcmath" "ctype" "curl" "dom" "fileinfo" "filter" "gd" "hash" "iconv" "intl" "json" "libxml" "mbstring" "openssl" "pcre" "pdo_mysql" "simplexml" "soap" "sockets" "sodium" "tokenizer" "xmlwriter" "xsl" "zip" "zlib")
