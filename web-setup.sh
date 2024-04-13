@@ -56,8 +56,11 @@ done
 # 第三步：移动文件到public目录
 echo "移动文件到 public 目录:"
 if [ -d "/data/wwwroot/default" ]; then
-    mkdir -p "/data/wwwroot/default/public"
-    find "/data/wwwroot/default" -mindepth 1 -maxdepth 1 ! -name "public" -exec mv {} "/data/wwwroot/default/public/" \;
+    mkdir -p "/data/wwwroot/default/public"  # 确保public目录存在
+    # 使用find命令选择除了特定目录外的所有文件和文件夹，并将它们移动到public目录
+    find "/data/wwwroot/default" -mindepth 1 -maxdepth 1 \
+        ! -name "public" ! -name "log" ! -name "ssl" ! -name "waf" \
+        -exec mv {} "/data/wwwroot/default/public/" \;
     echo "文件已移动到 /data/wwwroot/default/public/"
 else
     echo "/data/wwwroot/default 目录不存在"
